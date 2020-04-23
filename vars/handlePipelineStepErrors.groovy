@@ -12,7 +12,12 @@ import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
 
 @Field STEP_NAME = getClass().getName()
 
-@Field Set GENERAL_CONFIG_KEYS = []
+@Field Set GENERAL_CONFIG_KEYS = [
+    /**
+     * Defines the endpoint to send error messages to sentry.
+     */
+    'sentryDsn'
+]
 @Field Set STEP_CONFIG_KEYS = GENERAL_CONFIG_KEYS.plus([
     /**
      * Defines the behavior, in case an error occurs which is handled by this step. When set to `false` an error results in an "UNSTABLE" build result and the pipeline can continue.
@@ -61,7 +66,11 @@ void call(Map parameters = [:], body) {
         .withMandatoryProperty('stepParameters')
         .withMandatoryProperty('stepName')
         .addIfEmpty('stepNameDoc' , parameters.stepName)
+        //.addIfEmpty('sentryDsn', script.globalPipelineEnvironment.configuration.runStep?.get(stageName)?.sentryDsn)
+        .addIfEmpty('sentryDsn', false)
         .use()
+
+    //echo "handlePipelineStepErrors config: " + config
 
     def message = ''
     try {
@@ -75,6 +84,17 @@ void call(Map parameters = [:], body) {
             body()
         }
     } catch (AbortException | FlowInterruptedException ex) {
+        if(config.sentryDsn) {
+            try{
+                //println "config " + config
+                //println "cpe " + cpe
+                //println "parameters " + parameters
+                logErrorToSentry script: parameters.stepParameters?.script, config.stepName, parameters.stepParameters?.stageName?:env.STAGE_NAME, ex
+            } catch(Throwable e) {
+                echo "logErrorToSentry failed: " + e
+            }
+        }
+
         if (config.echoDetails)
             message += formatErrorMessage(config, ex)
         writeErrorToInfluxData(config, ex)
@@ -107,6 +127,14 @@ void call(Map parameters = [:], body) {
         cpe?.setValue('unstableSteps', unstableSteps)
 
     } catch (Throwable error) {
+        if(config.sentryDsn) {
+            try{
+                println "handlePipelineStepErrors logErrorToSentry another error"
+                //logErrorToSentry script: parameters.stepParameters?.script, config.stepName, parameters.stepParameters?.stageName?:env.STAGE_NAME, error
+            } catch(Exception e) {
+                echo "logErrorToSentry failed: " + e
+            }
+        }
         if (config.echoDetails)
             message += formatErrorMessage(config, error)
         writeErrorToInfluxData(config, error)
