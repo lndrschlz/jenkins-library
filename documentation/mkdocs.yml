@@ -26,6 +26,7 @@ nav:
                 - 'Confirm Stage': stages/confirm.md
                 - 'Promote Stage': stages/promote.md
                 - 'Release Stage': stages/release.md
+                - 'Post Stage': stages/post.md
         - 'SAP Cloud SDK pipeline':
             - 'Introduction': pipelines/cloud-sdk/introduction.md
             - 'Build Tools': pipelines/cloud-sdk/build-tools.md
